@@ -21,6 +21,9 @@
             --text-secondary: #86868b;
             --radius: 20px;
             --radius-sm: 12px;
+            /* ★ 统一行高变量，行号和编辑器共用 */
+            --editor-font-size: 14px;
+            --editor-line-height: 1.6;
         }
 
         body {
@@ -184,19 +187,22 @@
             overflow: hidden;
         }
 
+        /* ★ 修复：font-size 与编辑器保持一致，改用 <pre> 渲染避免 <br> 基线偏移 */
         .line-numbers {
             width: 50px;
             background: rgba(255, 255, 255, 0.3);
             border-right: 1px solid var(--glass-border);
-            padding: 16px 12px 16px 0;
+            padding: 16px 8px 16px 0;
             text-align: right;
             font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-            font-size: 13px;
-            line-height: 1.6;
+            font-size: var(--editor-font-size);   /* ★ 原来是 13px，改为与编辑器相同 */
+            line-height: var(--editor-line-height);
             color: var(--text-secondary);
             user-select: none;
             overflow: hidden;
             flex-shrink: 0;
+            /* ★ 用 pre 的方式渲染，whitespace 保持换行 */
+            white-space: pre;
         }
 
         /* ===== SYNTAX HIGHLIGHT COLORS ===== */
@@ -221,8 +227,8 @@
             margin: 0;
             padding: 16px;
             font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-            font-size: 14px;
-            line-height: 1.6;
+            font-size: var(--editor-font-size);
+            line-height: var(--editor-line-height);
             background: transparent;
             white-space: pre;
             word-break: normal;
@@ -244,8 +250,8 @@
             top: 0; left: 0; right: 0; bottom: 0;
             padding: 16px;
             font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
-            font-size: 14px;
-            line-height: 1.6;
+            font-size: var(--editor-font-size);
+            line-height: var(--editor-line-height);
             background: transparent;
             color: transparent;
             caret-color: #444;
@@ -424,6 +430,7 @@
             </div>
         </div>
         <div class="editor-wrapper">
+            <!-- ★ 行号改为纯文本节点，避免 <br> 基线偏移 -->
             <div class="line-numbers" id="lineNumbers">1</div>
             <div class="highlight-container">
                 <pre class="highlight-pre" id="highlightPre" aria-hidden="true"></pre>
@@ -493,13 +500,11 @@ class HistoryManager {
         this.MAX     = 300;
     }
 
-    /** 用户输入时，延迟 600ms 提交快照（防止每次按键都存） */
     scheduleCommit(value) {
         clearTimeout(this.timer);
         this.timer = setTimeout(() => this._save(value), 600);
     }
 
-    /** 立即提交快照（Tab 键、格式化、清空等程序修改时用） */
     commitNow(value) {
         clearTimeout(this.timer);
         this._save(value);
@@ -548,7 +553,6 @@ function esc(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/** 找到 tag 真正的结束 > (跳过引号内的 >) */
 function findTagEnd(code, start) {
     let i = start + 1, inS = false, inD = false;
     while (i < code.length) {
@@ -561,14 +565,12 @@ function findTagEnd(code, start) {
     return -1;
 }
 
-/** 高亮 tag 内的属性部分 */
 function hiliteAttrs(s) {
     if (!s) return '';
     let r = '', i = 0;
     while (i < s.length) {
         if (/\s/.test(s[i])) { r += s[i++]; continue; }
 
-        // 属性名
         let ne = i;
         while (ne < s.length && !/[\s=\/]/.test(s[ne])) ne++;
         if (ne > i) {
@@ -578,7 +580,6 @@ function hiliteAttrs(s) {
 
         while (i < s.length && s[i] === ' ') r += s[i++];
 
-        // 等号 + 值
         if (i < s.length && s[i] === '=') {
             r += `<span class="hl-bracket">=</span>`;
             i++;
@@ -597,15 +598,12 @@ function hiliteAttrs(s) {
             }
         }
 
-        // 防死循环
         if (ne === i && i < s.length && !/\s/.test(s[i])) r += esc(s[i++]);
     }
     return r;
 }
 
-/** 高亮单个 tag 字符串 */
 function hiliteTag(tag) {
-    // 闭合标签 </xxx>
     const closeM = tag.match(/^<\/([\w-]*)(\s*)>$/);
     if (closeM) {
         return `<span class="hl-bracket">&lt;/</span><span class="hl-tag-name">${esc(closeM[1])}</span><span class="hl-bracket">&gt;</span>`;
@@ -625,28 +623,24 @@ const RAW_TAG = /^(script|style)$/i;
 function syntaxHighlight(code) {
     let html = '', i = 0;
     while (i < code.length) {
-        // 注释
         if (code.startsWith('<!--', i)) {
             const end = code.indexOf('-->', i + 4);
             const ep  = end === -1 ? code.length : end + 3;
             html += `<span class="hl-comment">${esc(code.slice(i, ep))}</span>`;
             i = ep; continue;
         }
-        // DOCTYPE / 处理指令
         if (code[i] === '<' && code[i+1] === '!' && (code[i+2] || '') !== '-') {
             const end = findTagEnd(code, i);
             const ep  = end === -1 ? code.length : end + 1;
             html += `<span class="hl-doctype">${esc(code.slice(i, ep))}</span>`;
             i = ep; continue;
         }
-        // 标签
         if (code[i] === '<') {
             const end = findTagEnd(code, i);
             const ep  = end === -1 ? code.length : end + 1;
             const tag = code.slice(i, ep);
             html += hiliteTag(tag);
 
-            // script / style 内容作为纯文本处理
             const om = tag.match(/^<([\w]+)/);
             if (om && RAW_TAG.test(om[1]) && !tag.trimEnd().endsWith('/>')) {
                 const tn    = om[1].toLowerCase();
@@ -658,7 +652,6 @@ function syntaxHighlight(code) {
             } else { i = ep; }
             continue;
         }
-        // 文本
         const next = code.indexOf('<', i);
         const ep   = next === -1 ? code.length : next;
         html += `<span class="hl-text">${esc(code.slice(i, ep))}</span>`;
@@ -767,9 +760,11 @@ function updateHighlight() {
     highlightPre.innerHTML = syntaxHighlight(editor.value) + '\n';
 }
 
+// ★ 修复：改用 textContent 设置纯文本行号，用 \n 换行
+//    这样行高完全由 font-size + line-height 决定，与编辑器完全一致
 function updateLineNumbers() {
     const count = editor.value.split('\n').length;
-    lineNumbers.innerHTML = Array.from({ length: count }, (_, i) => i + 1).join('<br>');
+    lineNumbers.textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n');
 }
 
 let previewTimer;
@@ -810,7 +805,6 @@ editor.addEventListener('scroll', () => {
 });
 
 editor.addEventListener('keydown', e => {
-    // Tab 键插入空格
     if (e.key === 'Tab') {
         e.preventDefault();
         const s = editor.selectionStart, en = editor.selectionEnd;
@@ -822,11 +816,9 @@ editor.addEventListener('keydown', e => {
         previewTimer = setTimeout(updatePreview, 300);
         return;
     }
-    // Ctrl/Cmd + Z  撤销
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault(); doUndo(); return;
     }
-    // Ctrl/Cmd + Y  或  Ctrl+Shift+Z  重做
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault(); doRedo(); return;
     }
@@ -856,18 +848,37 @@ function doRedo() {
 }
 
 // ============================================================
-// 格式化代码
+// ★ 格式化代码 — 修复光标飘移
+//    思路：格式化前记录光标所在行号，格式化后将光标定位到
+//    新内容中相同行号的行首（行号超出范围则定位到末尾）
 // ============================================================
 function formatCode() {
     const formatted = formatHTML(editor.value);
-    if (formatted !== editor.value) {
-        history.commitNow(editor.value);   // 格式化前存快照
-        editor.value = formatted;
-        history.commitNow(editor.value);   // 格式化后存快照
-        onEditorChange();
-        clearTimeout(previewTimer);
-        previewTimer = setTimeout(updatePreview, 300);
+    if (formatted === editor.value) return;
+
+    // 1. 记录光标当前所在行（0-based）
+    const selStart     = editor.selectionStart;
+    const beforeCursor = editor.value.substring(0, selStart);
+    const cursorLine   = beforeCursor.split('\n').length - 1;
+
+    // 2. 存历史快照
+    history.commitNow(editor.value);
+    editor.value = formatted;
+    history.commitNow(editor.value);
+
+    // 3. 在新内容里找到相同行号的行首，恢复光标
+    const newLines   = formatted.split('\n');
+    const targetLine = Math.min(cursorLine, newLines.length - 1);
+    let newPos = 0;
+    for (let i = 0; i < targetLine; i++) {
+        newPos += newLines[i].length + 1; // +1 for '\n'
     }
+    editor.selectionStart = editor.selectionEnd = newPos;
+    editor.focus();
+
+    onEditorChange();
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(updatePreview, 300);
 }
 
 // ============================================================
