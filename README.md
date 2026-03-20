@@ -22,10 +22,10 @@
 ```bash
 git clone https://github.com/wink-wink-wink555/html-edit-preview.git
 cd html-edit-preview
-# 直接用浏览器打开 HTML-edit&preview.html 即可
+# 直接用浏览器打开 html_edit_preview.html 即可
 ```
 
-或者直接下载 `HTML-edit&preview.html` 在浏览器中打开。
+或者直接下载 `html_edit_preview.html` 在浏览器中打开。
 
 ## 🎯 适用场景
 
@@ -33,3 +33,8 @@ cd html-edit-preview
 - 快速编写和测试 HTML 片段
 - 轻量级代码演示和分享
 
+## 3月20日更新内容
+
+- 输入换行自动对齐
+- 输入 `<anything>` 自动匹配  `</anything>`
+- 输入光标飘逸问题修复
