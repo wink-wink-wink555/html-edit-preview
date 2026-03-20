@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Glass 编辑器 - 初学者实验室</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+            --accent-color: #007AFF;
+            --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --radius: 20px;
+            --radius-sm: 12px;
+            --editor-font-size: 14px;
+            --editor-line-height: 22px;
+            --editor-font: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            height: 100vh;
+            overflow: hidden;
+            color: var(--text-primary);
+        }
+
+        /* ===== TOOLBAR ===== */
+        .toolbar {
+            height: 60px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: var(--glass-shadow);
+            z-index: 100;
+            position: relative;
+        }
+
+        .logo {
+            display: flex; align-items: center; gap: 12px;
+            font-weight: 600; font-size: 18px; letter-spacing: -0.5px;
+        }
+
+        .logo-icon {
+            width: 32px; height: 32px;
+            background: var(--accent-gradient);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .actions { display: flex; gap: 12px; }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.6);
+            color: var(--text-primary);
+            font-size: 14px; font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary { background: var(--accent-color); color: white; border: none; }
+        .btn-primary:hover { background: #0051D5; box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3); }
+
+        /* ===== LAYOUT ===== */
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+            padding: 20px;
+            gap: 16px;
+        }
+
+        .panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: var(--radius);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            height: 48px;
+            background: rgba(255, 255, 255, 0.4);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 13px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .panel-actions { display: flex; gap: 8px; align-items: center; }
+
+        .icon-btn {
+            width: 28px; height: 28px;
+            border: none; background: transparent;
+            border-radius: 6px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+        .icon-btn:hover:not(:disabled) { background: rgba(0,0,0,0.05); color: var(--text-primary); }
+        .icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .editor-panel { flex: 1; min-width: 300px; }
+
+        /* ===== EDITOR WRAPPER ===== */
+        .editor-wrapper {
+            flex: 1;
+            display: flex;
+            overflow: hidden; /* 子元素自己处理各自的 overflow */
+        }
+
+        /*
+         * 行号列：overflow:hidden，仅通过 JS 同步 scrollTop，
+         * 与 .code-pre 使用完全相同的字体栈和行高。
+         * 两者都是普通块级 DOM 元素，渲染路径相同，不会漂移。
+         */
+        .line-numbers {
+            width: 50px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-right: 1px solid var(--glass-border);
+            padding: 16px 8px 16px 0;
+            text-align: right;
+            font-family: var(--editor-font);
+            font-size: var(--editor-font-size);
+            line-height: var(--editor-line-height);
+            color: var(--text-secondary);
+            user-select: none;
+            overflow: hidden;
+            white-space: pre;
+            font-kerning: none;
+            font-variant-ligatures: none;
+        }
+
+        /* ===== SYNTAX HIGHLIGHT COLORS ===== */
+        .hl-doctype   { color: #a0a0a0; }
+        .hl-comment   { color: #4a8a5a; font-style: italic; }
+        .hl-bracket   { color: #888888; }
+        .hl-tag-name  { color: #0070c1; font-weight: 600; }
+        .hl-attr-name { color: #b05a00; }
+        .hl-attr-value{ color: #067a3a; }
+        .hl-text      { color: #333333; }
+
+        /*
+         * ★ 核心修复：单一 contenteditable <pre>，既是编辑器也是高亮渲染层。
+         *   光标由浏览器在该元素内原生渲染，与文字天然对齐，彻底消除漂移。
+         */
+        .code-pre {
+            flex: 1;
+            margin: 0;
+            padding: 16px;
+            font-family: var(--editor-font);
+            font-size: var(--editor-font-size);
+            line-height: var(--editor-line-height);
+            background: transparent;
+            color: #333; /* 未高亮时的默认颜色 */
+            caret-color: #333;
+            white-space: pre;
+            word-break: normal;
+            overflow-wrap: normal;
+            overflow: auto;
+            outline: none;
+            tab-size: 2;
+            -moz-tab-size: 2;
+            border: none;
+            font-kerning: none;
+            font-variant-ligatures: none;
+            /* 不设置 letter-spacing / word-spacing，避免影响光标计算 */
+            cursor: text;  /* ★ 新增：鼠标悬停显示文本输入光标 */
+        }
+
+        /* ===== RESIZER ===== */
+        .resizer {
+            width: 12px; cursor: col-resize;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+            margin: 0 -6px; z-index: 10;
+        }
+        .resizer:hover { background: rgba(255,255,255,0.3); }
+        .resizer::after {
+            content: ""; width: 4px; height: 40px;
+            background: rgba(0,0,0,0.1); border-radius: 2px;
+        }
+
+        /* ===== PREVIEW ===== */
+        .preview-panel { flex: 1; min-width: 300px; }
+
+        .preview-wrapper {
+            flex: 1; position: relative; background: white;
+            margin: 16px; border-radius: var(--radius-sm);
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+        }
+
+        iframe { width: 100%; height: 100%; border: none; background: white; }
+
+        .preview-panel.fullscreen {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 1000; border-radius: 0; margin: 0;
+            width: 100vw; height: 100vh;
+        }
+        .preview-panel.fullscreen .preview-wrapper { margin: 0; border-radius: 0; }
+
+        .exit-fullscreen {
+            display: none;
+            position: fixed; top: 20px; right: 20px; z-index: 1001;
+            background: rgba(0,0,0,0.8); color: white;
+            padding: 10px 20px; border-radius: 30px; border: none;
+            cursor: pointer; font-weight: 600; backdrop-filter: blur(10px);
+        }
+        .preview-panel.fullscreen ~ .exit-fullscreen { display: block; }
+
+        /* ===== MISC ===== */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+
+        .badge {
+            font-size: 11px; padding: 2px 6px;
+            background: rgba(0,122,255,0.15);
+            color: var(--accent-color);
+            border-radius: 4px; font-weight: 600;
+        }
+
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .updating { animation: pulse 0.3s ease-in-out; }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .resizer { display: none; }
+            .editor-panel, .preview-panel { min-height: 300px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <div class="logo">
+        <div class="logo-icon">&lt;/&gt;</div>
+        <span>HTML Glass Lab</span>
+    </div>
+    <div class="actions">
+        <button class="btn" onclick="clearCode()"><span>清空</span></button>
+        <button class="btn" onclick="downloadHTML()"><span>下载</span></button>
+        <button class="btn btn-primary" onclick="refreshPreview()"><span>刷新预览</span></button>
+    </div>
+</div>
+
+<div class="container">
+    <!-- 编辑器面板 -->
+    <div class="panel editor-panel" id="editorPanel">
+        <div class="panel-header">
+            <div>
+                <span>HTML 编辑器</span>
+                <span class="badge" style="margin-left:8px;">实时</span>
+            </div>
+            <div class="panel-actions">
+                <button class="icon-btn" id="btnUndo" onclick="doUndo()" title="撤销 (Ctrl+Z)" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="9 14 4 9 9 4"/>
+                        <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+                    </svg>
+                </button>
+                <button class="icon-btn" id="btnRedo" onclick="doRedo()" title="重做 (Ctrl+Y)" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 14 20 9 15 4"/>
+                        <path d="M4 20v-7a4 4 0 0 1 4-4h12"/>
+                    </svg>
+                </button>
+                <button class="icon-btn" id="btnFormat" onclick="formatCode()" title="格式化代码">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="3" y1="6"  x2="21" y2="6"/>
+                        <line x1="3" y1="10" x2="15" y2="10"/>
+                        <line x1="3" y1="14" x2="21" y2="14"/>
+                        <line x1="3" y1="18" x2="12" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="editor-wrapper">
+            <div class="line-numbers" id="lineNumbers">1</div>
+            <!--
+                单一 contenteditable pre：
+                编辑 + 高亮渲染合二为一，光标由浏览器原生管理，
+                永远与所在行对齐，彻底消除 textarea/pre 双层漂移。
+            -->
+            <pre class="code-pre" id="codeEditor"
+                 contenteditable="true"
+                 spellcheck="false"
+                 autocorrect="off"
+                 autocapitalize="off"
+                 autocomplete="off"
+            ></pre>
+        </div>
+    </div>
+
+    <!-- 拖拽调整条 -->
+    <div class="resizer" id="resizer"></div>
+
+    <!-- 预览面板 -->
+    <div class="panel preview-panel" id="previewPanel">
+        <div class="panel-header">
+            <span>预览窗口</span>
+            <div class="panel-actions">
+                <button class="icon-btn" onclick="toggleFullscreen()" title="全屏预览">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="preview-wrapper">
+            <!-- srcdoc 直接注入 HTML，不再使用 blob: URL，解决 blob:null 报错 -->
+            <iframe id="previewFrame" sandbox="allow-scripts"></iframe>
+        </div>
+    </div>
+</div>
+
+<button class="exit-fullscreen" onclick="toggleFullscreen()">退出全屏</button>
+
+<script>
+'use strict';
+
+// ============================================================
+// 初始内容
+// ============================================================
+const HELLO_WORLD =
+`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Hello World</title>
+</head>
+<body>
+    <h1>Hello, World!</h1>
+</body>
+</html>`;
+
+// ============================================================
+// DOM 引用
+// ============================================================
+const editorEl     = document.getElementById('codeEditor');
+const lineNumbers  = document.getElementById('lineNumbers');
+const previewFrame = document.getElementById('previewFrame');
+const btnUndo      = document.getElementById('btnUndo');
+const btnRedo      = document.getElementById('btnRedo');
+const btnFormat    = document.getElementById('btnFormat');  // ★ 新增：格式化按钮引用
+
+// ============================================================
+// 常量
+// ============================================================
+const VOID_TAGS = new Set([
+    'area','base','br','col','embed','hr','img','input',
+    'link','meta','param','source','track','wbr'
+]);
+const TAB_SIZE = 2;
+
+// ============================================================
+// 历史管理
+// ============================================================
+class HistoryManager {
+    constructor(init) {
+        this.stack   = [init];
+        this.pointer = 0;
+        this.timer   = null;
+        this.MAX     = 300;
+    }
+    scheduleCommit(value) {
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => this._save(value), 600);
+    }
+    commitNow(value) {
+        clearTimeout(this.timer);
+        this._save(value);
+    }
+    _save(value) {
+        if (this.stack[this.pointer] === value) return;
+        this.stack = this.stack.slice(0, this.pointer + 1);
+        this.stack.push(value);
+        if (this.stack.length > this.MAX) this.stack.shift();
+        else this.pointer++;
+        this._updateBtns();
+    }
+    undo() {
+        clearTimeout(this.timer);
+        if (this.pointer > 0) { this.pointer--; this._updateBtns(); return this.stack[this.pointer]; }
+        return null;
+    }
+    redo() {
+        if (this.pointer < this.stack.length - 1) { this.pointer++; this._updateBtns(); return this.stack[this.pointer]; }
+        return null;
+    }
+    _updateBtns() {
+        btnUndo.disabled = this.pointer <= 0;
+        btnRedo.disabled = this.pointer >= this.stack.length - 1;
+    }
+}
+const historyMgr = new HistoryManager(HELLO_WORLD);
+
+// ============================================================
+// 语法高亮
+// ============================================================
+function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function findTagEnd(code, start) {
+    let i = start + 1, inS = false, inD = false;
+    while (i < code.length) {
+        const c = code[i];
+        if      (c === '"' && !inS) inD = !inD;
+        else if (c === "'" && !inD) inS = !inS;
+        else if (c === '>' && !inS && !inD) return i;
+        i++;
+    }
+    return -1;
+}
+
+function hiliteAttrs(s) {
+    if (!s) return '';
+    let r = '', i = 0;
+    while (i < s.length) {
+        if (/\s/.test(s[i])) { r += s[i++]; continue; }
+        let ne = i;
+        while (ne < s.length && !/[\s=\/]/.test(s[ne])) ne++;
+        if (ne > i) { r += `<span class="hl-attr-name">${esc(s.slice(i,ne))}</span>`; i = ne; }
+        while (i < s.length && s[i] === ' ') r += s[i++];
+        if (i < s.length && s[i] === '=') {
+            r += `<span class="hl-bracket">=</span>`; i++;
+            while (i < s.length && s[i] === ' ') r += s[i++];
+            if (i < s.length && (s[i] === '"' || s[i] === "'")) {
+                const q = s[i]; let end = s.indexOf(q, i+1);
+                if (end === -1) end = s.length - 1;
+                r += `<span class="hl-attr-value">${esc(s.slice(i,end+1))}</span>`; i = end+1;
+            } else {
+                let end = i;
+                while (end < s.length && !/\s/.test(s[end])) end++;
+                r += `<span class="hl-attr-value">${esc(s.slice(i,end))}</span>`; i = end;
+            }
+        }
+        if (ne === i && i < s.length && !/\s/.test(s[i])) r += esc(s[i++]);
+    }
+    return r;
+}
+
+function hiliteTag(tag) {
+    const closeM = tag.match(/^<\/([\w-]*)(\s*)>$/);
+    if (closeM) {
+        return `<span class="hl-bracket">&lt;/</span><span class="hl-tag-name">${esc(closeM[1])}</span><span class="hl-bracket">&gt;</span>`;
+    }
+    const self  = tag.trimEnd().endsWith('/>');
+    const inner = self ? tag.slice(1,-2) : tag.slice(1,-1);
+    const nameM = inner.match(/^([\w-]+)([\s\S]*)$/);
+    if (!nameM) return esc(tag);
+    return `<span class="hl-bracket">&lt;</span>` +
+           `<span class="hl-tag-name">${esc(nameM[1])}</span>` +
+           hiliteAttrs(nameM[2]) +
+           (self ? `<span class="hl-bracket"> /&gt;</span>` : `<span class="hl-bracket">&gt;</span>`);
+}
+
+const RAW_TAG = /^(script|style)$/i;
+
+function syntaxHighlight(code) {
+    let html = '', i = 0;
+    while (i < code.length) {
+        if (code.startsWith('<!--', i)) {
+            const end = code.indexOf('-->', i+4);
+            const ep  = end === -1 ? code.length : end+3;
+            html += `<span class="hl-comment">${esc(code.slice(i,ep))}</span>`;
+            i = ep; continue;
+        }
+        if (code[i] === '<' && code[i+1] === '!' && (code[i+2]||'') !== '-') {
+            const end = findTagEnd(code, i);
+            const ep  = end === -1 ? code.length : end+1;
+            html += `<span class="hl-doctype">${esc(code.slice(i,ep))}</span>`;
+            i = ep; continue;
+        }
+        if (code[i] === '<') {
+            const end = findTagEnd(code, i);
+            const ep  = end === -1 ? code.length : end+1;
+            const tag = code.slice(i, ep);
+            html += hiliteTag(tag);
+            const om = tag.match(/^<([\w]+)/);
+            if (om && RAW_TAG.test(om[1]) && !tag.trimEnd().endsWith('/>')) {
+                const tn    = om[1].toLowerCase();
+                const close = code.toLowerCase().indexOf(`</${tn}`, ep);
+                if (close !== -1) {
+                    html += `<span class="hl-text">${esc(code.slice(ep, close))}</span>`;
+                    i = close;
+                } else { i = ep; }
+            } else { i = ep; }
+            continue;
+        }
+        const next = code.indexOf('<', i);
+        const ep   = next === -1 ? code.length : next;
+        html += `<span class="hl-text">${esc(code.slice(i,ep))}</span>`;
+        i = ep;
+    }
+    return html;
+}
+
+// ============================================================
+// HTML 格式化
+// ============================================================
+function formatHTML(code) {
+    const INDENT = '    ';
+    const VOID_F = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+    const RAW_F  = new Set(['script','style','pre','textarea']);
+    const tokens = [];
+    let i = 0;
+
+    while (i < code.length) {
+        if (code.startsWith('<!--', i)) {
+            const end = code.indexOf('-->', i+4);
+            const ep  = end === -1 ? code.length : end+3;
+            tokens.push({ type:'comment', value: code.slice(i,ep) });
+            i = ep;
+        } else if (code[i]==='<' && code[i+1]==='!' && (code[i+2]||'')!=='-') {
+            const end = findTagEnd(code, i);
+            const ep  = end === -1 ? code.length : end+1;
+            tokens.push({ type:'doctype', value: code.slice(i,ep) });
+            i = ep;
+        } else if (code.startsWith('</', i)) {
+            const end = findTagEnd(code, i);
+            const ep  = end === -1 ? code.length : end+1;
+            const tag = code.slice(i,ep);
+            const m   = tag.match(/^<\/([\w-]+)/);
+            tokens.push({ type:'close', value:tag, name: m ? m[1].toLowerCase() : '' });
+            i = ep;
+        } else if (code[i]==='<') {
+            const end  = findTagEnd(code, i);
+            const ep   = end === -1 ? code.length : end+1;
+            const tag  = code.slice(i,ep);
+            const m    = tag.match(/^<([\w-]+)/);
+            const name = m ? m[1].toLowerCase() : '';
+            const self = tag.trimEnd().endsWith('/>') || VOID_F.has(name);
+            tokens.push({ type:'open', value:tag, name, self });
+            if (!self && RAW_F.has(name)) {
+                const ci = code.toLowerCase().indexOf(`</${name}`, ep);
+                if (ci !== -1) {
+                    const raw = code.slice(ep, ci);
+                    if (raw.trim()) tokens.push({ type:'raw', value:raw });
+                    i = ci;
+                } else { i = ep; }
+            } else { i = ep; }
+        } else {
+            const next = code.indexOf('<', i);
+            const ep   = next === -1 ? code.length : next;
+            if (ep > i) tokens.push({ type:'text', value: code.slice(i,ep) });
+            i = ep;
+        }
+    }
+
+    let out = '', depth = 0;
+    const ind = d => INDENT.repeat(d);
+
+    for (const t of tokens) {
+        if (t.type === 'doctype') {
+            out += t.value.trim() + '\n';
+        } else if (t.type === 'comment') {
+            out += ind(depth) + t.value.trim() + '\n';
+        } else if (t.type === 'close') {
+            depth = Math.max(0, depth-1);
+            out += ind(depth) + t.value.trim() + '\n';
+        } else if (t.type === 'open') {
+            out += ind(depth) + t.value.trim() + '\n';
+            if (!t.self) depth++;
+        } else if (t.type === 'raw') {
+            const lines    = t.value.split('\n');
+            const nonEmpty = lines.filter(l => l.trim());
+            if (nonEmpty.length) {
+                const minI = Math.min(...nonEmpty.map(l => l.match(/^(\s*)/)[1].length));
+                for (const line of lines) {
+                    const stripped = line.slice(minI);
+                    if (stripped.trim()) out += ind(depth) + stripped.trimStart() + '\n';
+                    else                 out += '\n';
+                }
+            }
+        } else if (t.type === 'text') {
+            const trimmed = t.value.trim();
+            if (trimmed) {
+                for (const line of trimmed.split('\n')) {
+                    const l = line.trim();
+                    if (l) out += ind(depth) + l + '\n';
+                }
+            }
+        }
+    }
+    return out.trim();
+}
+
+// ============================================================
+// ★ 核心 API：读写编辑器内容 + Selection 管理
+//   原理：contenteditable pre 中文字由浏览器统一渲染，
+//         光标也是浏览器原生光标，二者使用同一套字体度量，永不漂移。
+// ============================================================
+
+/**
+ * 从 contenteditable pre 提取纯文本。
+ * 用 innerText（会尊重 white-space:pre，正确还原 \n 和空格），
+ * 并去掉 setValue() 追加的那一个尾部 \n。
+ */
+function getPlainText() {
+    // innerText 在 white-space:pre 下能正确保留所有空白和换行，
+    // 并把 <br>（Firefox 偶尔插入）转换为 \n。
+    let text = editorEl.innerText;
+    // 去掉 setValue 为撑开最后一行而追加的 '\n'
+    if (text.endsWith('\n')) text = text.slice(0, -1);
+    return text;
+}
+
+/**
+ * 设置编辑器内容，重新高亮，更新行号，
+ * 并可选地恢复光标到指定字符偏移。
+ */
+function setValue(text, cursorOffset) {
+    // innerHTML = 高亮 HTML + 末尾 '\n'（撑开最后一行，保证可点击）
+    editorEl.innerHTML = syntaxHighlight(text) + '\n';
+    _updateLineNumbers(text);
+    if (cursorOffset !== undefined) {
+        _setCursorOffset(cursorOffset);
+    }
+}
+
+/**
+ * 获取光标（selection start）在纯文本中的字符偏移量。
+ * 原理：把 [editorEl起点, cursor起点] 这段 Range 转成字符串，取 length。
+ * 因为 Range.toString() 会自动解开 HTML 实体，与 innerText 的字符一一对应。
+ */
+function _getCursorOffset() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return 0;
+    const range = sel.getRangeAt(0);
+    try {
+        const pre = range.cloneRange();
+        pre.selectNodeContents(editorEl);
+        pre.setEnd(range.startContainer, range.startOffset);
+        return pre.toString().length;
+    } catch (_) { return 0; }
+}
+
+/**
+ * 获取选区的 { start, end } 字符偏移。
+ */
+function _getCursorSelection() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return { start: 0, end: 0 };
+    const range = sel.getRangeAt(0);
+    try {
+        const sr = range.cloneRange();
+        sr.selectNodeContents(editorEl);
+        sr.setEnd(range.startContainer, range.startOffset);
+        const start = sr.toString().length;
+
+        const er = range.cloneRange();
+        er.selectNodeContents(editorEl);
+        er.setEnd(range.endContainer, range.endOffset);
+        const end = er.toString().length;
+        return { start, end };
+    } catch (_) { return { start: 0, end: 0 }; }
+}
+
+/**
+ * 将光标（折叠选区）移到指定字符偏移处。
+ * 遍历所有文本节点，累计字符数，找到目标节点后设置 Range。
+ */
+function _setCursorOffset(offset) {
+    if (!document.contains(editorEl)) return;
+    const walker = document.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT);
+    let accum = 0, node;
+    while ((node = walker.nextNode())) {
+        const len = node.nodeValue.length;
+        if (accum + len >= offset) {
+            try {
+                const range = document.createRange();
+                range.setStart(node, offset - accum);
+                range.collapse(true);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            } catch (_) { /* 忽略越界 */ }
+            return;
+        }
+        accum += len;
+    }
+    // 超出末尾 → 放到最后一个文本节点尾部
+    try {
+        const range = document.createRange();
+        range.selectNodeContents(editorEl);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } catch (_) { /* ignore */ }
+}
+
+// ============================================================
+// 行号更新
+// ============================================================
+function _updateLineNumbers(text) {
+    const count = (text === '' ? 1 : text.split('\n').length);
+    lineNumbers.textContent = Array.from({ length: count }, (_, i) => i + 1).join('\n');
+}
+
+// ============================================================
+// 预览更新（★ 修复 blob:null：改用 srcdoc 直接注入 HTML）
+// ============================================================
+let previewTimer;
+function updatePreview() {
+    previewFrame.classList.add('updating');
+    previewFrame.srcdoc = getPlainText();
+    setTimeout(() => previewFrame.classList.remove('updating'), 300);
+}
+function _schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(updatePreview, 300);
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+setValue(HELLO_WORLD);
+updatePreview();
+// 初始化后让编辑器获取焦点，光标落在末尾
+editorEl.focus();
+
+// ============================================================
+// 辅助：缩进计算
+// ============================================================
+function _getIndent(beforeCursor) {
+    const lines = beforeCursor.split('\n');
+    return lines[lines.length - 1].match(/^(\s*)/)[1];
+}
+
+function _getOpenTagAtLineEnd(beforeCursor) {
+    const line = beforeCursor.split('\n').pop().trimEnd();
+    const m    = line.match(/<([\w-]+)([^<>]*)>$/);
+    if (!m) return null;
+    const name  = m[1].toLowerCase();
+    const attrs = m[2] || '';
+    if (VOID_TAGS.has(name))           return null;
+    if (attrs.trimEnd().endsWith('/')) return null;
+    return name;
+}
+
+// ============================================================
+// 自动闭合标签
+// ============================================================
+function _handleAutoClose() {
+    const { start: offset } = _getCursorSelection();
+    const text   = getPlainText();
+    const before = text.substring(0, offset);
+    const after  = text.substring(offset);
+
+    const m = before.match(/<([\w-]+)([^<>]*)>$/);
+    if (!m) return false;
+    const tagName  = m[1];
+    const tagAttrs = m[2] || '';
+    if (VOID_TAGS.has(tagName.toLowerCase())) return false;
+    if (tagAttrs.trimEnd().endsWith('/'))      return false;
+
+    const closeTag = `</${tagName}>`;
+    if (after.startsWith(closeTag)) return false;
+
+    const newText = before + closeTag + after;
+    setValue(newText, offset);
+    historyMgr.scheduleCommit(newText);
+    _schedulePreview();
+    return true;
+}
+
+// ============================================================
+// IME 中文输入处理（合字期间暂停重新高亮）
+// ============================================================
+let isComposing = false;
+editorEl.addEventListener('compositionstart', () => { isComposing = true; });
+editorEl.addEventListener('compositionend', () => {
+    isComposing = false;
+    const offset = _getCursorOffset();
+    const text   = getPlainText();
+    setValue(text, offset);
+    historyMgr.scheduleCommit(text);
+    _schedulePreview();
+    _enableFormatButton(); // ★ 新增：内容变化后恢复格式化按钮
+});
+
+// ============================================================
+// input 事件：重新高亮 + 更新行号 + 调度预览
+// ============================================================
+editorEl.addEventListener('input', (e) => {
+    if (isComposing) return;
+
+    // 输入 '>' 时尝试自动闭合（内部已完成 setValue）
+    if (e.inputType === 'insertText' && e.data === '>') {
+        if (_handleAutoClose()) {
+            _enableFormatButton(); // ★ 新增
+            return;
+        }
+    }
+
+    const offset = _getCursorOffset();
+    const text   = getPlainText();
+    setValue(text, offset);
+    historyMgr.scheduleCommit(text);
+    _schedulePreview();
+    _enableFormatButton(); // ★ 新增：内容变化后恢复格式化按钮
+});
+
+// ============================================================
+// scroll：行号跟随代码区滚动
+//   两者都是普通 DOM 元素，scrollTop 值含义完全相同，无漂移。
+// ============================================================
+editorEl.addEventListener('scroll', () => {
+    lineNumbers.scrollTop = editorEl.scrollTop;
+});
+
+// ============================================================
+// keydown：Tab / Enter / Backspace / 撤销重做
+// ============================================================
+editorEl.addEventListener('keydown', e => {
+
+    // ── 撤销 / 重做 ──────────────────────────────────────────
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault(); doUndo(); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault(); doRedo(); return;
+    }
+
+    // ── Tab：插入 2 个空格 ────────────────────────────────────
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        const { start, end } = _getCursorSelection();
+        const text    = getPlainText();
+        const newText = text.substring(0, start) + '  ' + text.substring(end);
+        setValue(newText, start + TAB_SIZE);
+        historyMgr.commitNow(newText);
+        _schedulePreview();
+        _enableFormatButton(); // ★ 新增
+        return;
+    }
+
+    // ── Enter：自动缩进 ───────────────────────────────────────
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const { start, end } = _getCursorSelection();
+        const text   = getPlainText();
+        const before = text.substring(0, start);
+        const after  = text.substring(end);
+        const indent = _getIndent(before);
+        const EXTRA  = ' '.repeat(TAB_SIZE);
+
+        const restOfLine   = after.split('\n')[0];
+        const openAtEnd    = before.trimEnd().match(/<([\w-]+)([^<>]*)>$/);
+        const closeAtStart = restOfLine.match(/^<\/([\w-]+)\s*>/);
+
+        const isExpand = openAtEnd && closeAtStart &&
+            openAtEnd[1].toLowerCase() === closeAtStart[1].toLowerCase() &&
+            !VOID_TAGS.has(openAtEnd[1].toLowerCase()) &&
+            !(openAtEnd[2] || '').trimEnd().endsWith('/');
+
+        let newText, newOffset;
+        if (isExpand) {
+            // <tag>|</tag> → 展开为三行
+            const line1 = '\n' + indent + EXTRA;
+            const line2 = '\n' + indent;
+            newText   = before + line1 + line2 + after;
+            newOffset = start + line1.length;
+        } else {
+            // 继承缩进，若行尾是开标签则额外加一级
+            const extraIndent = _getOpenTagAtLineEnd(before) ? EXTRA : '';
+            const ins = '\n' + indent + extraIndent;
+            newText   = before + ins + after;
+            newOffset = start + ins.length;
+        }
+
+        setValue(newText, newOffset);
+        historyMgr.scheduleCommit(newText);
+        _schedulePreview();
+        _enableFormatButton(); // ★ 新增
+        return;
+    }
+
+    // ── Backspace：行首空白按 Tab 步长删除 ────────────────────
+    if (e.key === 'Backspace') {
+        const { start, end } = _getCursorSelection();
+        if (start === end && start > 0) {
+            const text       = getPlainText();
+            const before     = text.substring(0, start);
+            const lineStart  = before.lastIndexOf('\n') + 1;
+            const lineIndent = before.substring(lineStart); // 行首到光标的内容
+
+            if (lineIndent.length > 0 && /^ +$/.test(lineIndent)) {
+                e.preventDefault();
+                const spaces  = lineIndent.length;
+                const toDel   = spaces % TAB_SIZE === 0 ? TAB_SIZE : spaces % TAB_SIZE;
+                const newText = text.substring(0, start - toDel) + text.substring(start);
+                setValue(newText, start - toDel);
+                historyMgr.scheduleCommit(newText);
+                _schedulePreview();
+                _enableFormatButton(); // ★ 新增
+                return;
+            }
+        }
+    }
+});
+
+// ============================================================
+// 撤销 / 重做
+// ============================================================
+function doUndo() {
+    const val = historyMgr.undo();
+    if (val !== null) {
+        editorEl.focus({ preventScroll: true });
+        setValue(val);
+        _schedulePreview();
+        _enableFormatButton(); // ★ 新增
+    }
+}
+function doRedo() {
+    const val = historyMgr.redo();
+    if (val !== null) {
+        editorEl.focus({ preventScroll: true });
+        setValue(val);
+        _schedulePreview();
+        _enableFormatButton(); // ★ 新增
+    }
+}
+
+// ============================================================
+// ★ 新增：格式化按钮状态管理
+// ============================================================
+let formatButtonDisabled = false;
+
+function _disableFormatButton() {
+    formatButtonDisabled = true;
+    btnFormat.disabled = true;
+    btnFormat.style.opacity = '0.3';
+    btnFormat.style.cursor = 'not-allowed';
+}
+
+function _enableFormatButton() {
+    if (formatButtonDisabled) {
+        formatButtonDisabled = false;
+        btnFormat.disabled = false;
+        btnFormat.style.opacity = '';
+        btnFormat.style.cursor = '';
+    }
+}
+
+// ============================================================
+// 格式化代码（★ 修改：点击后立即禁用，直到内容变化）
+// ============================================================
+function formatCode() {
+    // 如果已经禁用，直接返回
+    if (formatButtonDisabled) return;
+
+    const text      = getPlainText();
+    const formatted = formatHTML(text);
+    if (formatted === text) return;
+
+    const cursorLine = text.substring(0, _getCursorOffset()).split('\n').length - 1;
+    historyMgr.commitNow(text);
+    setValue(formatted);
+    historyMgr.commitNow(formatted);
+
+    // 尽量把光标停在格式化后的对应行首
+    const newLines   = formatted.split('\n');
+    const targetLine = Math.min(cursorLine, newLines.length - 1);
+    let newPos = 0;
+    for (let i = 0; i < targetLine; i++) newPos += newLines[i].length + 1;
+    editorEl.focus({ preventScroll: true });
+    _setCursorOffset(newPos);
+
+    _schedulePreview();
+
+    // ★ 关键：点击后立即禁用格式化按钮
+    _disableFormatButton();
+}
+
+// ============================================================
+// 其他功能
+// ============================================================
+function refreshPreview() { updatePreview(); }
+
+function clearCode() {
+    if (confirm('确定要清空所有代码吗？')) {
+        historyMgr.commitNow(getPlainText());
+        setValue('');
+        historyMgr.commitNow('');
+        updatePreview();
+        editorEl.focus();
+        _enableFormatButton(); // ★ 新增：清空后恢复按钮
+    }
+}
+
+function downloadHTML() {
+    const text = getPlainText();
+    const blob = new Blob([text], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'index.html'; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function toggleFullscreen() {
+    const panel = document.getElementById('previewPanel');
+    if (!document.fullscreenElement) {
+        panel.requestFullscreen().catch(() => panel.classList.toggle('fullscreen'));
+    } else {
+        document.exitFullscreen();
+        panel.classList.remove('fullscreen');
+    }
+}
+
+document.addEventListener('fullscreenchange', () => {
+    const panel = document.getElementById('previewPanel');
+    if (document.fullscreenElement) panel.classList.add('fullscreen');
+    else panel.classList.remove('fullscreen');
+});
+
+// ============================================================
+// 拖拽调整宽度
+// ============================================================
+const resizer    = document.getElementById('resizer');
+const leftPanel  = document.getElementById('editorPanel');
+const rightPanel = document.getElementById('previewPanel');
+let isResizing   = false;
+
+resizer.addEventListener('mousedown', e => {
+    isResizing = true;
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+    if (!isResizing) return;
+    const cw  = document.querySelector('.container').offsetWidth;
+    const pct = (e.clientX / cw) * 100;
+    if (pct > 20 && pct < 80) {
+        leftPanel.style.flex  = `0 0 ${pct}%`;
+        rightPanel.style.flex = `0 0 ${100 - pct - 1}%`;
+    }
+});
+document.addEventListener('mouseup', () => {
+    isResizing = false;
+    document.body.style.cursor = 'default';
+});
+resizer.addEventListener('selectstart', e => e.preventDefault());
+window.addEventListener('resize', () => {
+    leftPanel.style.flex  = '1';
+    rightPanel.style.flex = '1';
+});
+</script>
+</body>
+</html>
