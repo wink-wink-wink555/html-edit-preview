@@ -81,6 +81,7 @@
         }
         .btn-primary { background: var(--accent-color); color: white; border: none; }
         .btn-primary:hover { background: #0051D5; box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
 
         /* ===== LAYOUT ===== */
         .container {
@@ -131,18 +132,107 @@
 
         .editor-panel { flex: 1; min-width: 300px; }
 
+        /* ===== FILE TABS ===== */
+        .file-tabs-bar {
+            display: flex;
+            align-items: flex-end;
+            background: rgba(255, 255, 255, 0.15);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 6px 10px 0;
+            overflow-x: auto;
+            flex-shrink: 0;
+            gap: 2px;
+            min-height: 42px;
+        }
+        .file-tabs-bar::-webkit-scrollbar { height: 3px; }
+        .file-tabs-bar::-webkit-scrollbar-track { background: transparent; }
+        .file-tabs-bar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }
+
+        .file-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 8px 8px 0 0;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-bottom: none;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            white-space: nowrap;
+            user-select: none;
+            height: 34px;
+        }
+        .file-tab:hover { background: rgba(255,255,255,0.45); color: var(--text-primary); }
+        .file-tab.active {
+            background: rgba(255,255,255,0.78);
+            border-color: var(--glass-border);
+            color: var(--text-primary);
+        }
+
+        .tab-dot {
+            width: 9px; height: 9px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .tab-dot.html { background: #e34c26; }
+        .tab-dot.css  { background: #264de4; }
+        .tab-dot.other { background: #888; }
+
+        .tab-close-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px;
+            background: none; border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 13px;
+            line-height: 1;
+            padding: 0;
+            opacity: 0;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .file-tab:hover .tab-close-btn,
+        .file-tab.active .tab-close-btn { opacity: 1; }
+        .tab-close-btn:hover { background: rgba(229,57,53,0.15); color: #e53935; }
+
+        .tab-add-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 28px; height: 28px;
+            background: none; border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 20px;
+            font-weight: 300;
+            border-radius: 6px;
+            transition: all 0.2s;
+            align-self: center;
+            margin: 0 2px 4px;
+            padding: 0;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .tab-add-btn:hover { background: rgba(255,255,255,0.55); color: var(--text-primary); }
+
+        /* ===== CSS SYNTAX COLORS ===== */
+        .css-selector { color: #7c3aed; font-weight: 600; }
+        .css-property { color: #b05a00; }
+        .css-value    { color: #067a3a; }
+        .css-brace    { color: #888888; }
+        .css-punct    { color: #888888; }
+        .css-at-rule  { color: #0070c1; font-weight: 600; }
+
         /* ===== EDITOR WRAPPER ===== */
         .editor-wrapper {
             flex: 1;
             display: flex;
-            overflow: hidden; /* 子元素自己处理各自的 overflow */
+            overflow: hidden;
         }
 
-        /*
-         * 行号列：overflow:hidden，仅通过 JS 同步 scrollTop，
-         * 与 .code-pre 使用完全相同的字体栈和行高。
-         * 两者都是普通块级 DOM 元素，渲染路径相同，不会漂移。
-         */
         .line-numbers {
             width: 50px;
             flex-shrink: 0;
@@ -161,7 +251,7 @@
             font-variant-ligatures: none;
         }
 
-        /* ===== SYNTAX HIGHLIGHT COLORS ===== */
+        /* ===== HTML SYNTAX COLORS ===== */
         .hl-doctype   { color: #a0a0a0; }
         .hl-comment   { color: #4a8a5a; font-style: italic; }
         .hl-bracket   { color: #888888; }
@@ -170,10 +260,6 @@
         .hl-attr-value{ color: #067a3a; }
         .hl-text      { color: #333333; }
 
-        /*
-         * ★ 核心修复：单一 contenteditable <pre>，既是编辑器也是高亮渲染层。
-         *   光标由浏览器在该元素内原生渲染，与文字天然对齐，彻底消除漂移。
-         */
         .code-pre {
             flex: 1;
             margin: 0;
@@ -182,7 +268,7 @@
             font-size: var(--editor-font-size);
             line-height: var(--editor-line-height);
             background: transparent;
-            color: #333; /* 未高亮时的默认颜色 */
+            color: #333;
             caret-color: #333;
             white-space: pre;
             word-break: normal;
@@ -194,8 +280,7 @@
             border: none;
             font-kerning: none;
             font-variant-ligatures: none;
-            /* 不设置 letter-spacing / word-spacing，避免影响光标计算 */
-            cursor: text;  /* ★ 新增：鼠标悬停显示文本输入光标 */
+            cursor: text;
         }
 
         /* ===== RESIZER ===== */
@@ -239,6 +324,68 @@
         }
         .preview-panel.fullscreen ~ .exit-fullscreen { display: block; }
 
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+
+        .modal-box {
+            background: rgba(255, 255, 255, 0.97);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-radius: var(--radius);
+            border: 1px solid var(--glass-border);
+            padding: 28px;
+            width: 380px;
+            max-width: 90vw;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+        }
+        .modal-title {
+            font-size: 17px; font-weight: 700;
+            color: var(--text-primary); margin-bottom: 8px;
+        }
+        .modal-desc {
+            font-size: 13px; color: var(--text-secondary);
+            margin-bottom: 20px; line-height: 1.65;
+        }
+        .modal-desc code {
+            background: rgba(0,0,0,0.07); padding: 1px 6px;
+            border-radius: 4px; font-family: var(--editor-font);
+            font-size: 11.5px; color: #0070c1;
+        }
+        .modal-label {
+            display: block; font-size: 12px; font-weight: 600;
+            color: var(--text-secondary); margin-bottom: 6px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .modal-input {
+            display: block; width: 100%;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            border: 1.5px solid rgba(0,0,0,0.12);
+            background: #fff;
+            font-size: 14px;
+            font-family: var(--editor-font);
+            outline: none;
+            transition: border-color 0.2s;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+        .modal-input:focus { border-color: var(--accent-color); }
+        .modal-error {
+            font-size: 12px; color: #e53935;
+            min-height: 18px; margin-bottom: 18px;
+        }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
         /* ===== MISC ===== */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -271,7 +418,7 @@
     </div>
     <div class="actions">
         <button class="btn" onclick="clearCode()"><span>清空</span></button>
-        <button class="btn" onclick="downloadHTML()"><span>下载</span></button>
+        <button class="btn" onclick="downloadFile()"><span>下载</span></button>
         <button class="btn btn-primary" onclick="refreshPreview()"><span>刷新预览</span></button>
     </div>
 </div>
@@ -281,7 +428,7 @@
     <div class="panel editor-panel" id="editorPanel">
         <div class="panel-header">
             <div>
-                <span>HTML 编辑器</span>
+                <span id="panelTitle">HTML 编辑器</span>
                 <span class="badge" style="margin-left:8px;">实时</span>
             </div>
             <div class="panel-actions">
@@ -297,7 +444,7 @@
                         <path d="M4 20v-7a4 4 0 0 1 4-4h12"/>
                     </svg>
                 </button>
-                <button class="icon-btn" id="btnFormat" onclick="formatCode()" title="格式化代码">
+                <button class="icon-btn" id="btnFormat" onclick="formatCode()" title="格式化 HTML">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <line x1="3" y1="6"  x2="21" y2="6"/>
                         <line x1="3" y1="10" x2="15" y2="10"/>
@@ -307,13 +454,12 @@
                 </button>
             </div>
         </div>
+
+        <!-- 文件标签栏 -->
+        <div class="file-tabs-bar" id="fileTabsBar"></div>
+
         <div class="editor-wrapper">
             <div class="line-numbers" id="lineNumbers">1</div>
-            <!--
-                单一 contenteditable pre：
-                编辑 + 高亮渲染合二为一，光标由浏览器原生管理，
-                永远与所在行对齐，彻底消除 textarea/pre 双层漂移。
-            -->
             <pre class="code-pre" id="codeEditor"
                  contenteditable="true"
                  spellcheck="false"
@@ -340,8 +486,27 @@
             </div>
         </div>
         <div class="preview-wrapper">
-            <!-- srcdoc 直接注入 HTML，不再使用 blob: URL，解决 blob:null 报错 -->
             <iframe id="previewFrame" sandbox="allow-scripts"></iframe>
+        </div>
+    </div>
+</div>
+
+<!-- 新建 CSS 文件弹窗 -->
+<div class="modal-overlay" id="newFileModal">
+    <div class="modal-box">
+        <div class="modal-title">新建 CSS 文件</div>
+        <div class="modal-desc">
+            创建一个外部样式文件，然后在 HTML 中用
+            <code>&lt;link rel="stylesheet" href="文件名.css"&gt;</code>
+            引用它，预览时会自动解析并生效。
+        </div>
+        <label class="modal-label" for="newFileInput">文件名</label>
+        <input class="modal-input" id="newFileInput" type="text"
+               placeholder="例如：mystyle.css" maxlength="60" />
+        <div class="modal-error" id="newFileError"></div>
+        <div class="modal-actions">
+            <button class="btn" onclick="closeNewFileModal()">取消</button>
+            <button class="btn btn-primary" onclick="confirmNewFile()">创建文件</button>
         </div>
     </div>
 </div>
@@ -366,6 +531,11 @@ const HELLO_WORLD =
 </body>
 </html>`;
 
+const CSS_DEFAULT = (name) =>
+`/* 外部样式表：${name}（纯 CSS 代码，无 HTML 标签）*/
+
+`;
+
 // ============================================================
 // DOM 引用
 // ============================================================
@@ -374,7 +544,9 @@ const lineNumbers  = document.getElementById('lineNumbers');
 const previewFrame = document.getElementById('previewFrame');
 const btnUndo      = document.getElementById('btnUndo');
 const btnRedo      = document.getElementById('btnRedo');
-const btnFormat    = document.getElementById('btnFormat');  // ★ 新增：格式化按钮引用
+const btnFormat    = document.getElementById('btnFormat');
+const fileTabsBar  = document.getElementById('fileTabsBar');
+const panelTitle   = document.getElementById('panelTitle');
 
 // ============================================================
 // 常量
@@ -425,10 +597,194 @@ class HistoryManager {
         btnRedo.disabled = this.pointer >= this.stack.length - 1;
     }
 }
-const historyMgr = new HistoryManager(HELLO_WORLD);
 
 // ============================================================
-// 语法高亮
+// 虚拟文件系统
+// ============================================================
+const fileContents = { 'index.html': HELLO_WORLD };
+const fileHistories = { 'index.html': new HistoryManager(HELLO_WORLD) };
+// 保持文件顺序（index.html 始终第一）
+const fileOrder = ['index.html'];
+
+let currentFile = 'index.html';
+let historyMgr  = fileHistories['index.html'];
+
+function getCurrentFileExt() {
+    const p = currentFile.split('.');
+    return p.length > 1 ? p[p.length - 1].toLowerCase() : '';
+}
+
+function getTabDotClass(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    if (ext === 'html' || ext === 'htm') return 'html';
+    if (ext === 'css') return 'css';
+    return 'other';
+}
+
+// ============================================================
+// 文件标签渲染
+// ============================================================
+function renderFileTabs() {
+    fileTabsBar.innerHTML = '';
+
+    for (const filename of fileOrder) {
+        const tab = document.createElement('div');
+        tab.className = 'file-tab' + (filename === currentFile ? ' active' : '');
+
+        const dot = document.createElement('span');
+        dot.className = `tab-dot ${getTabDotClass(filename)}`;
+        tab.appendChild(dot);
+
+        const label = document.createElement('span');
+        label.textContent = filename;
+        tab.appendChild(label);
+
+        // index.html 不可删除
+        if (filename !== 'index.html') {
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'tab-close-btn';
+            closeBtn.innerHTML = '&#x2715;';
+            closeBtn.title = `删除 ${filename}`;
+            closeBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                deleteFile(filename);
+            });
+            tab.appendChild(closeBtn);
+        }
+
+        tab.addEventListener('click', () => switchToFile(filename));
+        fileTabsBar.appendChild(tab);
+    }
+
+    // "+" 按钮
+    const addBtn = document.createElement('button');
+    addBtn.className = 'tab-add-btn';
+    addBtn.title = '新建 CSS 文件';
+    addBtn.textContent = '+';
+    addBtn.addEventListener('click', openNewFileModal);
+    fileTabsBar.appendChild(addBtn);
+
+    // 更新面板标题
+    const ext = getCurrentFileExt();
+    panelTitle.textContent = ext === 'css' ? 'CSS 编辑器' : 'HTML 编辑器';
+}
+
+// ============================================================
+// 文件切换
+// ============================================================
+function switchToFile(filename) {
+    if (filename === currentFile) return;
+
+    // 保存当前内容
+    const text = getPlainText();
+    fileContents[currentFile] = text;
+    historyMgr.commitNow(text);
+
+    currentFile = filename;
+    historyMgr  = fileHistories[currentFile];
+
+    setValue(fileContents[currentFile] || '');
+    renderFileTabs();
+    _syncFormatButton();
+    editorEl.focus({ preventScroll: true });
+}
+
+// ============================================================
+// 删除文件
+// ============================================================
+function deleteFile(filename) {
+    if (filename === 'index.html') return;
+    if (!confirm(`确定要删除 "${filename}" 吗？此操作不可撤销。`)) return;
+
+    const wasActive = currentFile === filename;
+    delete fileContents[filename];
+    delete fileHistories[filename];
+    const idx = fileOrder.indexOf(filename);
+    if (idx !== -1) fileOrder.splice(idx, 1);
+
+    if (wasActive) {
+        currentFile = 'index.html';
+        historyMgr  = fileHistories['index.html'];
+        setValue(fileContents['index.html'] || '');
+        _syncFormatButton();
+    }
+
+    renderFileTabs();
+    updatePreview();
+}
+
+// ============================================================
+// 新建文件弹窗
+// ============================================================
+function openNewFileModal() {
+    const modal = document.getElementById('newFileModal');
+    const input = document.getElementById('newFileInput');
+    document.getElementById('newFileError').textContent = '';
+    input.value = '';
+    modal.classList.add('show');
+    setTimeout(() => input.focus(), 60);
+}
+
+function closeNewFileModal() {
+    document.getElementById('newFileModal').classList.remove('show');
+}
+
+function confirmNewFile() {
+    const input   = document.getElementById('newFileInput');
+    const errorEl = document.getElementById('newFileError');
+    const filename = input.value.trim();
+
+    errorEl.textContent = '';
+
+    if (!filename) {
+        errorEl.textContent = '文件名不能为空';
+        input.focus(); return;
+    }
+    if (!/^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$/.test(filename)) {
+        errorEl.textContent = '文件名格式无效（字母、数字、下划线、连字符开头）';
+        input.focus(); return;
+    }
+    const ext = filename.split('.').pop().toLowerCase();
+    if (ext !== 'css') {
+        errorEl.textContent = '目前仅支持创建 .css 文件';
+        input.focus(); return;
+    }
+    if (fileContents[filename] !== undefined) {
+        errorEl.textContent = `文件 "${filename}" 已存在`;
+        input.focus(); return;
+    }
+
+    const defaultContent = CSS_DEFAULT(filename);
+    fileContents[filename]  = defaultContent;
+    fileHistories[filename] = new HistoryManager(defaultContent);
+    fileOrder.push(filename);
+
+    closeNewFileModal();
+
+    // 保存当前文件后切换
+    fileContents[currentFile] = getPlainText();
+    fileHistories[currentFile].commitNow(fileContents[currentFile]);
+
+    currentFile = filename;
+    historyMgr  = fileHistories[currentFile];
+
+    setValue(defaultContent);
+    renderFileTabs();
+    _syncFormatButton();
+    editorEl.focus({ preventScroll: true });
+    _setCursorOffset(defaultContent.length);
+}
+
+document.getElementById('newFileInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter')  confirmNewFile();
+    if (e.key === 'Escape') closeNewFileModal();
+});
+document.getElementById('newFileModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeNewFileModal();
+});
+
+// ============================================================
+// HTML 语法高亮
 // ============================================================
 function esc(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -530,6 +886,113 @@ function syntaxHighlight(code) {
 }
 
 // ============================================================
+// CSS 语法高亮
+// ============================================================
+function cssSyntaxHighlight(code) {
+    let result  = '';
+    let i       = 0;
+    let depth   = 0;
+    let inValue = false;
+
+    while (i < code.length) {
+        // 块注释
+        if (code.startsWith('/*', i)) {
+            const end = code.indexOf('*/', i + 2);
+            const ep  = end === -1 ? code.length : end + 2;
+            result += `<span class="hl-comment">${esc(code.slice(i, ep))}</span>`;
+            i = ep; continue;
+        }
+
+        // 字符串（url、content 等）
+        if (depth > 0 && (code[i] === '"' || code[i] === "'")) {
+            const q = code[i];
+            let j = i + 1;
+            while (j < code.length && code[j] !== q) {
+                if (code[j] === '\\') j++;
+                j++;
+            }
+            const ep = j < code.length ? j + 1 : j;
+            result += `<span class="css-value">${esc(code.slice(i, ep))}</span>`;
+            i = ep; continue;
+        }
+
+        const ch = code[i];
+
+        if (ch === '{') {
+            result += `<span class="css-brace">{</span>`;
+            depth++; inValue = false; i++; continue;
+        }
+        if (ch === '}') {
+            result += `<span class="css-brace">}</span>`;
+            depth = Math.max(0, depth - 1); inValue = false; i++; continue;
+        }
+
+        if (depth > 0) {
+            if (ch === ':' && !inValue) {
+                result += `<span class="css-punct">:</span>`;
+                inValue = true; i++; continue;
+            }
+            if (ch === ';') {
+                result += `<span class="css-punct">;</span>`;
+                inValue = false; i++; continue;
+            }
+            if (inValue) {
+                let j = i;
+                while (j < code.length &&
+                       code[j] !== ';' && code[j] !== '{' && code[j] !== '}' &&
+                       code[j] !== '"' && code[j] !== "'" &&
+                       !code.startsWith('/*', j)) j++;
+                if (j > i) {
+                    result += `<span class="css-value">${esc(code.slice(i, j))}</span>`;
+                    i = j;
+                } else { result += esc(ch); i++; }
+            } else {
+                let j = i;
+                while (j < code.length &&
+                       code[j] !== ':' && code[j] !== ';' &&
+                       code[j] !== '{' && code[j] !== '}' &&
+                       !code.startsWith('/*', j)) j++;
+                if (j > i) {
+                    const txt = code.slice(i, j);
+                    result += txt.trim()
+                        ? `<span class="css-property">${esc(txt)}</span>`
+                        : esc(txt);
+                    i = j;
+                } else { result += esc(ch); i++; }
+            }
+        } else {
+            // depth === 0：选择器 / @规则
+            let j = i;
+            while (j < code.length &&
+                   code[j] !== '{' && code[j] !== ';' &&
+                   !code.startsWith('/*', j)) j++;
+
+            const isSemi = j < code.length && code[j] === ';';
+            if (j > i) {
+                const txt = code.slice(i, j);
+                result += _cssAtOrSelector(txt);
+                if (isSemi) result += `<span class="css-punct">;</span>`;
+                i = isSemi ? j + 1 : j;
+            } else {
+                result += esc(ch); i++;
+            }
+        }
+    }
+    return result;
+}
+
+function _cssAtOrSelector(txt) {
+    if (!txt.trim()) return esc(txt);
+    const m = txt.match(/^(\s*)(@[\w-]+)([\s\S]*)$/);
+    if (m) {
+        return esc(m[1]) +
+               `<span class="css-at-rule">${esc(m[2])}</span>` +
+               esc(m[3]);
+    }
+    return `<span class="css-selector">${esc(txt)}</span>`;
+}
+
+// ============================================================
 // HTML 格式化
 // ============================================================
 function formatHTML(code) {
@@ -620,43 +1083,24 @@ function formatHTML(code) {
 }
 
 // ============================================================
-// ★ 核心 API：读写编辑器内容 + Selection 管理
-//   原理：contenteditable pre 中文字由浏览器统一渲染，
-//         光标也是浏览器原生光标，二者使用同一套字体度量，永不漂移。
+// 读写编辑器内容 + Selection 管理
 // ============================================================
-
-/**
- * 从 contenteditable pre 提取纯文本。
- * 用 innerText（会尊重 white-space:pre，正确还原 \n 和空格），
- * 并去掉 setValue() 追加的那一个尾部 \n。
- */
 function getPlainText() {
-    // innerText 在 white-space:pre 下能正确保留所有空白和换行，
-    // 并把 <br>（Firefox 偶尔插入）转换为 \n。
     let text = editorEl.innerText;
-    // 去掉 setValue 为撑开最后一行而追加的 '\n'
     if (text.endsWith('\n')) text = text.slice(0, -1);
     return text;
 }
 
-/**
- * 设置编辑器内容，重新高亮，更新行号，
- * 并可选地恢复光标到指定字符偏移。
- */
 function setValue(text, cursorOffset) {
-    // innerHTML = 高亮 HTML + 末尾 '\n'（撑开最后一行，保证可点击）
-    editorEl.innerHTML = syntaxHighlight(text) + '\n';
+    const ext = getCurrentFileExt();
+    const highlighted = (ext === 'css')
+        ? cssSyntaxHighlight(text)
+        : syntaxHighlight(text);
+    editorEl.innerHTML = highlighted + '\n';
     _updateLineNumbers(text);
-    if (cursorOffset !== undefined) {
-        _setCursorOffset(cursorOffset);
-    }
+    if (cursorOffset !== undefined) _setCursorOffset(cursorOffset);
 }
 
-/**
- * 获取光标（selection start）在纯文本中的字符偏移量。
- * 原理：把 [editorEl起点, cursor起点] 这段 Range 转成字符串，取 length。
- * 因为 Range.toString() 会自动解开 HTML 实体，与 innerText 的字符一一对应。
- */
 function _getCursorOffset() {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return 0;
@@ -669,9 +1113,6 @@ function _getCursorOffset() {
     } catch (_) { return 0; }
 }
 
-/**
- * 获取选区的 { start, end } 字符偏移。
- */
 function _getCursorSelection() {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return { start: 0, end: 0 };
@@ -690,10 +1131,6 @@ function _getCursorSelection() {
     } catch (_) { return { start: 0, end: 0 }; }
 }
 
-/**
- * 将光标（折叠选区）移到指定字符偏移处。
- * 遍历所有文本节点，累计字符数，找到目标节点后设置 Range。
- */
 function _setCursorOffset(offset) {
     if (!document.contains(editorEl)) return;
     const walker = document.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT);
@@ -708,12 +1145,11 @@ function _setCursorOffset(offset) {
                 const sel = window.getSelection();
                 sel.removeAllRanges();
                 sel.addRange(range);
-            } catch (_) { /* 忽略越界 */ }
+            } catch (_) { }
             return;
         }
         accum += len;
     }
-    // 超出末尾 → 放到最后一个文本节点尾部
     try {
         const range = document.createRange();
         range.selectNodeContents(editorEl);
@@ -721,7 +1157,7 @@ function _setCursorOffset(offset) {
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
-    } catch (_) { /* ignore */ }
+    } catch (_) { }
 }
 
 // ============================================================
@@ -733,12 +1169,40 @@ function _updateLineNumbers(text) {
 }
 
 // ============================================================
-// 预览更新（★ 修复 blob:null：改用 srcdoc 直接注入 HTML）
+// 预览构建（核心：解析虚拟 CSS 文件）
 // ============================================================
+function buildPreviewHTML() {
+    // 同步当前编辑内容
+    fileContents[currentFile] = getPlainText();
+
+    let html = fileContents['index.html'] || '';
+
+    // 将 <link rel="stylesheet" href="xxx.css"> 替换为内联 <style>
+    html = html.replace(/<link([^>]*?)(?:\s*\/)?>/gi, (match, attrs) => {
+        const relM = attrs.match(/rel=["']([^"']+)["']/i);
+        if (!relM || relM[1].toLowerCase() !== 'stylesheet') return match;
+
+        const hrefM = attrs.match(/href=["']([^"']+)["']/i);
+        if (!hrefM) return match;
+
+        const href = hrefM[1].trim();
+        // 外部 URL 不处理
+        if (/^(https?:)?\/\//.test(href) || href.startsWith('/')) return match;
+
+        if (fileContents[href] !== undefined) {
+            return `<style>/* ↓ ${href} */\n${fileContents[href]}\n</style>`;
+        }
+        // 文件不存在时保留原标签（预览中会静默失败）
+        return match;
+    });
+
+    return html;
+}
+
 let previewTimer;
 function updatePreview() {
     previewFrame.classList.add('updating');
-    previewFrame.srcdoc = getPlainText();
+    previewFrame.srcdoc = buildPreviewHTML();
     setTimeout(() => previewFrame.classList.remove('updating'), 300);
 }
 function _schedulePreview() {
@@ -749,9 +1213,9 @@ function _schedulePreview() {
 // ============================================================
 // 初始化
 // ============================================================
+renderFileTabs();
 setValue(HELLO_WORLD);
 updatePreview();
-// 初始化后让编辑器获取焦点，光标落在末尾
 editorEl.focus();
 
 // ============================================================
@@ -774,9 +1238,12 @@ function _getOpenTagAtLineEnd(beforeCursor) {
 }
 
 // ============================================================
-// 自动闭合标签
+// 自动闭合标签（仅 HTML）
 // ============================================================
 function _handleAutoClose() {
+    const ext = getCurrentFileExt();
+    if (ext !== 'html' && ext !== 'htm') return false;
+
     const { start: offset } = _getCursorSelection();
     const text   = getPlainText();
     const before = text.substring(0, offset);
@@ -800,7 +1267,7 @@ function _handleAutoClose() {
 }
 
 // ============================================================
-// IME 中文输入处理（合字期间暂停重新高亮）
+// IME 中文输入
 // ============================================================
 let isComposing = false;
 editorEl.addEventListener('compositionstart', () => { isComposing = true; });
@@ -811,21 +1278,17 @@ editorEl.addEventListener('compositionend', () => {
     setValue(text, offset);
     historyMgr.scheduleCommit(text);
     _schedulePreview();
-    _enableFormatButton(); // ★ 新增：内容变化后恢复格式化按钮
+    _enableFormatButton();
 });
 
 // ============================================================
-// input 事件：重新高亮 + 更新行号 + 调度预览
+// input 事件
 // ============================================================
 editorEl.addEventListener('input', (e) => {
     if (isComposing) return;
 
-    // 输入 '>' 时尝试自动闭合（内部已完成 setValue）
     if (e.inputType === 'insertText' && e.data === '>') {
-        if (_handleAutoClose()) {
-            _enableFormatButton(); // ★ 新增
-            return;
-        }
+        if (_handleAutoClose()) { _enableFormatButton(); return; }
     }
 
     const offset = _getCursorOffset();
@@ -833,23 +1296,21 @@ editorEl.addEventListener('input', (e) => {
     setValue(text, offset);
     historyMgr.scheduleCommit(text);
     _schedulePreview();
-    _enableFormatButton(); // ★ 新增：内容变化后恢复格式化按钮
+    _enableFormatButton();
 });
 
 // ============================================================
-// scroll：行号跟随代码区滚动
-//   两者都是普通 DOM 元素，scrollTop 值含义完全相同，无漂移。
+// scroll：行号跟随
 // ============================================================
 editorEl.addEventListener('scroll', () => {
     lineNumbers.scrollTop = editorEl.scrollTop;
 });
 
 // ============================================================
-// keydown：Tab / Enter / Backspace / 撤销重做
+// keydown
 // ============================================================
 editorEl.addEventListener('keydown', e => {
 
-    // ── 撤销 / 重做 ──────────────────────────────────────────
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault(); doUndo(); return;
     }
@@ -857,7 +1318,6 @@ editorEl.addEventListener('keydown', e => {
         e.preventDefault(); doRedo(); return;
     }
 
-    // ── Tab：插入 2 个空格 ────────────────────────────────────
     if (e.key === 'Tab') {
         e.preventDefault();
         const { start, end } = _getCursorSelection();
@@ -866,11 +1326,10 @@ editorEl.addEventListener('keydown', e => {
         setValue(newText, start + TAB_SIZE);
         historyMgr.commitNow(newText);
         _schedulePreview();
-        _enableFormatButton(); // ★ 新增
+        _enableFormatButton();
         return;
     }
 
-    // ── Enter：自动缩进 ───────────────────────────────────────
     if (e.key === 'Enter') {
         e.preventDefault();
         const { start, end } = _getCursorSelection();
@@ -879,26 +1338,34 @@ editorEl.addEventListener('keydown', e => {
         const after  = text.substring(end);
         const indent = _getIndent(before);
         const EXTRA  = ' '.repeat(TAB_SIZE);
-
-        const restOfLine   = after.split('\n')[0];
-        const openAtEnd    = before.trimEnd().match(/<([\w-]+)([^<>]*)>$/);
-        const closeAtStart = restOfLine.match(/^<\/([\w-]+)\s*>/);
-
-        const isExpand = openAtEnd && closeAtStart &&
-            openAtEnd[1].toLowerCase() === closeAtStart[1].toLowerCase() &&
-            !VOID_TAGS.has(openAtEnd[1].toLowerCase()) &&
-            !(openAtEnd[2] || '').trimEnd().endsWith('/');
+        const ext    = getCurrentFileExt();
 
         let newText, newOffset;
-        if (isExpand) {
-            // <tag>|</tag> → 展开为三行
-            const line1 = '\n' + indent + EXTRA;
-            const line2 = '\n' + indent;
-            newText   = before + line1 + line2 + after;
-            newOffset = start + line1.length;
+
+        if (ext === 'html' || ext === 'htm') {
+            const restOfLine   = after.split('\n')[0];
+            const openAtEnd    = before.trimEnd().match(/<([\w-]+)([^<>]*)>$/);
+            const closeAtStart = restOfLine.match(/^<\/([\w-]+)\s*>/);
+            const isExpand = openAtEnd && closeAtStart &&
+                openAtEnd[1].toLowerCase() === closeAtStart[1].toLowerCase() &&
+                !VOID_TAGS.has(openAtEnd[1].toLowerCase()) &&
+                !(openAtEnd[2] || '').trimEnd().endsWith('/');
+
+            if (isExpand) {
+                const line1 = '\n' + indent + EXTRA;
+                const line2 = '\n' + indent;
+                newText   = before + line1 + line2 + after;
+                newOffset = start + line1.length;
+            } else {
+                const extraIndent = _getOpenTagAtLineEnd(before) ? EXTRA : '';
+                const ins = '\n' + indent + extraIndent;
+                newText   = before + ins + after;
+                newOffset = start + ins.length;
+            }
         } else {
-            // 继承缩进，若行尾是开标签则额外加一级
-            const extraIndent = _getOpenTagAtLineEnd(before) ? EXTRA : '';
+            // CSS：行尾 { 时额外缩进一级
+            const lineBeforeCursor = before.split('\n').pop();
+            const extraIndent = lineBeforeCursor.trimEnd().endsWith('{') ? EXTRA : '';
             const ins = '\n' + indent + extraIndent;
             newText   = before + ins + after;
             newOffset = start + ins.length;
@@ -907,18 +1374,17 @@ editorEl.addEventListener('keydown', e => {
         setValue(newText, newOffset);
         historyMgr.scheduleCommit(newText);
         _schedulePreview();
-        _enableFormatButton(); // ★ 新增
+        _enableFormatButton();
         return;
     }
 
-    // ── Backspace：行首空白按 Tab 步长删除 ────────────────────
     if (e.key === 'Backspace') {
         const { start, end } = _getCursorSelection();
         if (start === end && start > 0) {
             const text       = getPlainText();
             const before     = text.substring(0, start);
             const lineStart  = before.lastIndexOf('\n') + 1;
-            const lineIndent = before.substring(lineStart); // 行首到光标的内容
+            const lineIndent = before.substring(lineStart);
 
             if (lineIndent.length > 0 && /^ +$/.test(lineIndent)) {
                 e.preventDefault();
@@ -928,7 +1394,7 @@ editorEl.addEventListener('keydown', e => {
                 setValue(newText, start - toDel);
                 historyMgr.scheduleCommit(newText);
                 _schedulePreview();
-                _enableFormatButton(); // ★ 新增
+                _enableFormatButton();
                 return;
             }
         }
@@ -944,7 +1410,7 @@ function doUndo() {
         editorEl.focus({ preventScroll: true });
         setValue(val);
         _schedulePreview();
-        _enableFormatButton(); // ★ 新增
+        _enableFormatButton();
     }
 }
 function doRedo() {
@@ -953,12 +1419,12 @@ function doRedo() {
         editorEl.focus({ preventScroll: true });
         setValue(val);
         _schedulePreview();
-        _enableFormatButton(); // ★ 新增
+        _enableFormatButton();
     }
 }
 
 // ============================================================
-// ★ 新增：格式化按钮状态管理
+// 格式化按钮状态（CSS 文件不可格式化）
 // ============================================================
 let formatButtonDisabled = false;
 
@@ -966,23 +1432,38 @@ function _disableFormatButton() {
     formatButtonDisabled = true;
     btnFormat.disabled = true;
     btnFormat.style.opacity = '0.3';
-    btnFormat.style.cursor = 'not-allowed';
+    btnFormat.style.cursor  = 'not-allowed';
 }
 
 function _enableFormatButton() {
-    if (formatButtonDisabled) {
+    if (!formatButtonDisabled) return;
+    const ext = getCurrentFileExt();
+    if (ext !== 'html' && ext !== 'htm') return; // CSS 不可格式化
+    formatButtonDisabled = false;
+    btnFormat.disabled = false;
+    btnFormat.style.opacity = '';
+    btnFormat.style.cursor  = '';
+}
+
+function _syncFormatButton() {
+    const ext = getCurrentFileExt();
+    if (ext !== 'html' && ext !== 'htm') {
+        formatButtonDisabled = true;
+        btnFormat.disabled = true;
+        btnFormat.style.opacity = '0.3';
+        btnFormat.style.cursor  = 'not-allowed';
+    } else {
         formatButtonDisabled = false;
         btnFormat.disabled = false;
         btnFormat.style.opacity = '';
-        btnFormat.style.cursor = '';
+        btnFormat.style.cursor  = '';
     }
 }
 
 // ============================================================
-// 格式化代码（★ 修改：点击后立即禁用，直到内容变化）
+// 格式化代码
 // ============================================================
 function formatCode() {
-    // 如果已经禁用，直接返回
     if (formatButtonDisabled) return;
 
     const text      = getPlainText();
@@ -994,7 +1475,6 @@ function formatCode() {
     setValue(formatted);
     historyMgr.commitNow(formatted);
 
-    // 尽量把光标停在格式化后的对应行首
     const newLines   = formatted.split('\n');
     const targetLine = Math.min(cursorLine, newLines.length - 1);
     let newPos = 0;
@@ -1003,8 +1483,6 @@ function formatCode() {
     _setCursorOffset(newPos);
 
     _schedulePreview();
-
-    // ★ 关键：点击后立即禁用格式化按钮
     _disableFormatButton();
 }
 
@@ -1014,22 +1492,26 @@ function formatCode() {
 function refreshPreview() { updatePreview(); }
 
 function clearCode() {
-    if (confirm('确定要清空所有代码吗？')) {
+    const label = currentFile === 'index.html' ? 'index.html 的全部代码' : `"${currentFile}" 的内容`;
+    if (confirm(`确定要清空 ${label} 吗？`)) {
         historyMgr.commitNow(getPlainText());
         setValue('');
         historyMgr.commitNow('');
         updatePreview();
         editorEl.focus();
-        _enableFormatButton(); // ★ 新增：清空后恢复按钮
+        _syncFormatButton();
     }
 }
 
-function downloadHTML() {
-    const text = getPlainText();
-    const blob = new Blob([text], { type: 'text/html' });
+function downloadFile() {
+    // 保存当前内容
+    fileContents[currentFile] = getPlainText();
+    const text = fileContents[currentFile];
+    const mime = currentFile.endsWith('.css') ? 'text/css' : 'text/html';
+    const blob = new Blob([text], { type: mime });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href = url; a.download = 'index.html'; a.click();
+    a.href = url; a.download = currentFile; a.click();
     URL.revokeObjectURL(url);
 }
 
