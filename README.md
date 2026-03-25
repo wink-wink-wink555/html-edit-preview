@@ -38,3 +38,8 @@ cd html-edit-preview
 - 输入换行自动对齐
 - 输入 `<anything>` 自动匹配  `</anything>`
 - 输入光标飘逸问题修复
+
+## 3月25日更新内容
+
+- 新增外部 css 文件支持
+  > 创建一个外部样式文件，然后在 HTML 中用 `<link rel="stylesheet" href="文件名.css">` 引用它，预览时会自动解析并生效。
